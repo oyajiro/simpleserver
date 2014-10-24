@@ -40,4 +40,5 @@ class User extends Model
         $row = $this->getRowById($this->user_id, $this->table);
         $this->setAttributes($row);
     }
+
 }

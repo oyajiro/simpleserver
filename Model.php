@@ -30,7 +30,13 @@ class Model
     //Валидация входящих данных, здесь в идеале надо реализовать обработку каждого поля по типу (если ожидаем инт, проходим регуляркой на инт к примеру)
     private function validate($params)
     {
-        return true;
+        $result = true;
+        foreach ($this->fields as $field) {
+            if (!isset($params['field'])) {
+                $result = false;
+            }
+        }
+        return $result;
     }
 
     private function init()
@@ -49,12 +55,19 @@ class Model
         return $result;
     }
 
-    private function queryOne($sql, $params)
+    private function query($sql, $params)
     {
         if ($this->validate($params)) {
             $query = $this->db->prepare($sql);
             $query->execute($params);
         }
+    }
+
+    private function queryTransaction($sql)
+    {
+        $this->db->beginTransaction();
+        $this->db->exec($sql);
+        $this->db->commit();
     }
 
     public function getRowById($id)
@@ -82,8 +95,27 @@ class Model
             $update_values = implode(', ', $update_params);
 
             $sql = 'INSERT INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values . ' ON DUPLICATE KEY UPDATE ' . $update_values;
-            $this->queryOne($sql, $params);
+            $this->query($sql, $params);
         }
+    }
+
+    public function saveRows($data)
+    {
+        $sql = 'INSERT INTO ' . $this->table . '( ' . implode(', ', $this->fields) . ') VALUES';
+        foreach ($data as $row) {
+            if $this->validate($row) {
+                $values = array();
+                foreach ($row as $key => $value) {
+                    $values[] = $value;
+                }
+                $sql .=  '(' . implode(', ', $values[]) . ')';
+            }
+        }
+        foreach ($this->fields as $field) {
+            $update_params[] = $params['field'] . ' = VALUES(' . $params['field'] . ')';
+        }
+        $sql .=  ' ON DUPLICATE KEY UPDATE ' . implode(', ', $update_params);
+        $this->query($sql, $params);
     }
 
     public function getAttributes()
