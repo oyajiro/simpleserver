@@ -3,9 +3,10 @@
         include $class_name . '.php';
     }
 
-    $user = new User;
-    $user->user_id = 1;
-    $user->init();
-    // var_dump($user);
+    $user = new User('aaaa1');
+    print_r($user->getAttributes());
+    $user->last_visit = time();
+    $user->saveRow();
+    $user->refresh();
     print_r($user->getAttributes());
 ?>

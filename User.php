@@ -1,8 +1,9 @@
 <?php
 class User extends Model
 {
-    private $table = 'UserData';
 
+    public $table = 'UserData';
+    public $id_field = 'user_id';
     public $fields = array(
         'user_id',
         'level',
@@ -27,4 +28,16 @@ class User extends Model
         }
     }
 
+    public function __construct($id = '') {
+        parent::__construct();
+        if (!empty($id)) {
+            $row = $this->getRowById($id, $this->table);
+            $this->setAttributes($row);
+        }
+    }
+
+    public function refresh() {
+        $row = $this->getRowById($this->user_id, $this->table);
+        $this->setAttributes($row);
+    }
 }

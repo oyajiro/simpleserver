@@ -6,11 +6,12 @@ class Model
     private $mysql_host;
     private $mysql_password;
     private $mysql_database;
-    private $table;
     private $db;
     private $fetch_style = PDO::FETCH_ASSOC;
 
     public $fields = array();
+    public $table;
+    public $id_field;
 
     public function __construct() {
         $options = get_options();
@@ -59,7 +60,7 @@ class Model
     public function getRowById($id)
     {
 
-        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE user_id=:user_id LIMIT 1';
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $this->id_field . ' = :' . $this->id_field . ' LIMIT 1';
         $params = array(':user_id' => $id);
         return $this->selectOne($sql, $params);
     }
@@ -68,19 +69,21 @@ class Model
     {
         $data = $this->getAttributes();
         $params = array();
-        if ($this->validate()) {
+        $params_arr = array();
+        $str = '';
+        if ($this->validate($this->getAttributes())) {
+            $str =  '(' . implode(', ', array_keys($data)) . ')';
             foreach ($data as $key => $value) {
-                $str = $key . ' = :' . $key;
+                $params_arr[] = ':' . $key;
                 $params[':' . $key] = $value;
+                $update_params[] = $key . ' = ' . ' :' . $key;
             }
+            $values =  '(' . implode(', ', $params_arr) . ')';
+            $update_values = implode(', ', $update_params);
 
-            $sql = 'INSERT INTO ' . $this->table . ' SET ' . $str . ' ON DUPLICATE KEY UPDATE ' . $str;       
+            $sql = 'INSERT INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values . ' ON DUPLICATE KEY UPDATE ' . $update_values;
+            $this->queryOne($sql, $params);
         }
-    }
-
-    public function saveObject($user_id)
-    {
-
     }
 
     public function getAttributes()
@@ -101,7 +104,6 @@ class Model
         {
             if(in_array($name, $this->fields)) {
                 $this->$name = $value;
-                // var_dump($name,$this->$name);
             }
         }
     }
