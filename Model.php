@@ -1,15 +1,21 @@
 <?php
+require_once dirname(__FILE__) . "/configDB.php";
 class Model
 {
-    private $mysql_user = 'test';
-    private $mysql_host = 'localhost';
-    private $mysql_password = 'raPvPcBcMhHYWGGb';
-    private $mysql_database = 'test';
+    private $mysql_user;
+    private $mysql_host;
+    private $mysql_password;
+    private $mysql_database;
+    private $table;
     private $db;
     private $fetch_style = PDO::FETCH_ASSOC;
+
     public $fields = array();
 
     public function __construct() {
+        foreach ($optionsDb as $key => $value) {
+            $this->$key = $value;
+        }
         try {
             $this->db = new PDO('mysql:host='. $this->mysql_host . ';dbname=' . $this->mysql_database, $this->mysql_user, $this->mysql_password);
         } catch (PDOException $e) {
@@ -17,6 +23,7 @@ class Model
         }
     }
 
+    //Валидация входящих данных, здесь в идеале надо реализовать обработку каждого поля по типу (если ожидаем инт, проходим регуляркой на инт к примеру)
     private function validate($params)
     {
         return true;
@@ -27,7 +34,7 @@ class Model
 
     }
 
-    private function queryOne($sql, $params)
+    private function selectOne($sql, $params)
     {
         $result = false;
         if ($this->validate($params)) {
@@ -38,29 +45,33 @@ class Model
         return $result;
     }
 
-    public function getField($field, $table)
+    private function queryOne($sql, $params)
     {
-        $sql = 'SELECT :field FROM :table WHERE user_id=:user_id LIMIT 1';
-        $params = array(':field' => $field, ':table' => $table, ':user_id' => $this->user_id);
-        return $this->queryOne($sql, $params);
+        if ($this->validate($params)) {
+            $query = $this->db->prepare($sql);
+            $query->execute($params);
+        }
     }
 
-    public function getRowById($id, $table)
+    public function getRowById($id)
     {
 
-        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $table . ' WHERE user_id=:user_id LIMIT 1';
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE user_id=:user_id LIMIT 1';
         $params = array(':user_id' => $id);
-        return $this->queryOne($sql, $params);
+        return $this->selectOne($sql, $params);
     }
 
-    public function saveData()
+    public function saveRow()
     {
+        $data = $this->getAttributes();
+        $params = array();
         if ($this->validate()) {
-            if (empty($this->user_id)) {
-                mysqli_insert();
-            } else {
-                mysqli_insert('');
+            foreach ($data as $key => $value) {
+                $str = $key . ' = :' . $key;
+                $params[':' . $key] = $value;
             }
+
+            $sql = 'INSERT INTO ' . $this->table . ' SET ' . $str . ' ON DUPLICATE KEY UPDATE ' . $str;       
         }
     }
 
