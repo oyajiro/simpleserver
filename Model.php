@@ -13,13 +13,16 @@ class Model
     public $fields = array();
 
     public function __construct() {
-        foreach ($optionsDb as $key => $value) {
-            $this->$key = $value;
-        }
-        try {
-            $this->db = new PDO('mysql:host='. $this->mysql_host . ';dbname=' . $this->mysql_database, $this->mysql_user, $this->mysql_password);
-        } catch (PDOException $e) {
-            print "Error!: " . $e->getMessage() . "<br/>";
+        $options = get_options();
+        if (!empty($options)) {
+            foreach ($options as $key => $value) {
+                $this->$key = $value;
+            }
+            try {
+                $this->db = new PDO('mysql:host='. $this->mysql_host . ';dbname=' . $this->mysql_database, $this->mysql_user, $this->mysql_password);
+            } catch (PDOException $e) {
+                print "Error!: " . $e->getMessage() . "<br/>";
+            }
         }
     }
 
