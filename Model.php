@@ -12,6 +12,7 @@ class Model
     public $fields = array();
     public $table;
     public $id_field;
+    public $memcache;
 
     //Валидация входящих данных, здесь в идеале надо реализовать обработку каждого поля по типу (если ожидаем инт, проходим регуляркой на инт к примеру)
     protected function validate($params)
@@ -28,11 +29,9 @@ class Model
     protected function selectOne($sql, $params)
     {
         $result = false;
-        if ($this->validate($params)) {
-            $query = $this->db->prepare($sql);
-            $query->execute($params);
-            $result = $query->fetch($this->fetch_style);
-        }
+        $query = $this->db->prepare($sql);
+        $query->execute($params);
+        $result = $query->fetch($this->fetch_style);
         return $result;
     }
 
@@ -76,6 +75,8 @@ class Model
                 print "Error!: " . $e->getMessage() . "<br/>";
             }
         }
+        $this->memcache = new Memcached;
+        $this->memcache->addServer('localhost', 11211);
     }
 
     public function getRowById($id)
@@ -93,30 +94,30 @@ class Model
         return $this->selectOne($sql, $params);
     }
 
-    // public function getRowsByField($field, $values)
-    // {
-    //     $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $field . ' IN (' . implode(', ', $values) . ')';
-    //     return $this->selectRows($sql);
-    // }
+    public function getRowsByField($field, $values)
+    {
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $field . ' IN (' . implode(', ', $values) . ')';
+        return $this->selectRows($sql);
+    }
 
-    // public function getRows($data)
-    // {
-    //     $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ';
-    //     $in = array();
-    //     foreach ($data as $row) {
-    //         //Валидация требует доработки
-    //         foreach ($row as $key => $value) {
-    //             $in['`' . $key . '`'][] = '\''. $value . '\'';
-    //         }
-    //     }
-    //     if (!empty($in)) {
-    //         $conditions = array();
-    //         foreach ($in as $key => $value) {
-    //             $conditions[] = $key . ' IN (' . implode(', ', $value) . ')';
-    //         }
-    //     }
-    //     return $this->selectRows($sql . implode(' OR ', $conditions));
-    // }
+    public function getRows($data)
+    {
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ';
+        $in = array();
+        foreach ($data as $row) {
+            //Валидация требует доработки
+            foreach ($row as $key => $value) {
+                $in['`' . $key . '`'][] = '\''. $value . '\'';
+            }
+        }
+        if (!empty($in)) {
+            $conditions = array();
+            foreach ($in as $key => $value) {
+                $conditions[] = $key . ' IN (' . implode(', ', $value) . ')';
+            }
+        }
+        return $this->selectRows($sql . implode(' OR ', $conditions));
+    }
 
     public function saveRow()
     {
@@ -137,24 +138,24 @@ class Model
         }
     }
 
-    // public function saveRows($data)
-    // {
-    //     $fields = array();
-    //     foreach ($this->fields as $field) {
-    //         $fields[] = '`' . $field . '`';
-    //     }
-    //     $sql = 'REPLACE INTO ' . $this->table . ' ( ' . implode(', ', $fields) . ') VALUES ';
-    //     foreach ($data as $row) {
-    //         if ($this->validate($row)) {
-    //             $values = array();
-    //             foreach ($row as $key => $value) {
-    //                 $values[] = '\'' . $value . '\'';
-    //             }
-    //             $value_rows[] = '(' . implode(', ', $values) . ')';
-    //         }
-    //     }
-    //     $this->queryTransaction($sql . implode(', ', $value_rows));
-    // }
+    public function saveRows($data)
+    {
+        $fields = array();
+        foreach ($this->fields as $field) {
+            $fields[] = '`' . $field . '`';
+        }
+        $sql = 'REPLACE INTO ' . $this->table . ' ( ' . implode(', ', $fields) . ') VALUES ';
+        foreach ($data as $row) {
+            if ($this->validate($row)) {
+                $values = array();
+                foreach ($row as $key => $value) {
+                    $values[] = '\'' . $value . '\'';
+                }
+                $value_rows[] = '(' . implode(', ', $values) . ')';
+            }
+        }
+        $this->queryTransaction($sql . implode(', ', $value_rows));
+    }
 
     public function getAttributes()
     {

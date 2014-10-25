@@ -1,5 +1,4 @@
 <?php
-    // xhprof_enable(XHPROF_FLAGS_CPU + XHPROF_FLAGS_MEMORY);
     function __autoload($class_name) {
         include $class_name . '.php';
     }
@@ -48,9 +47,4 @@
                 }
         }
     }
-    // $xhprof_data = xhprof_disable();
-    // include_once "/var/www/xhprof/xhprof_lib/utils/xhprof_lib.php";
-    // include_once "/var/www/xhprof/xhprof_lib/utils/xhprof_runs.php";
-    // $xhprof_runs = new XHProfRuns_Default();
-    // $run_id = $xhprof_runs->save_run($xhprof_data, "test");
 ?>

@@ -44,19 +44,35 @@ class User extends Model
 
     public function getRowById($id, $fields)
     {
-        $includeObjects = false;
         $result = false;
+        $fields_str = implode(', ', $fields);
+        if ($this->memcache) {
+            $result = $this->memcache->get(md5($id));
+            if ($result) {
+                if ($result['fields_str'] == $fields_str) {
+                    echo 'c - ' . $id . "\n";
+                    unset($result['fields_str']);
+                    return $result;
+                }
+            }
+        }
+        $includeObjects = false;
         if (is_array($fields)) {
             if (in_array('objects', $fields)) {
                 $includeObjects = true;
+                $fields = array_diff($fields, ['objects']);
             }
             $fields = implode(', ', $fields);
         }
         $params = array(':' . $this->id_field => $id);
         $sql = 'SELECT ' . $fields . ' FROM ' . $this->table . ' WHERE ' . $this->id_field . ' = :' . $this->id_field . ' LIMIT 1';
         $result = $this->selectOne($sql, $params);
-        if ($includeObjects) {
+        if ($includeObjects && !empty($result)) {
             $result['objects'] = $this->getObjectsById($id);
+        }
+        if ($this->memcache) {
+            $result['fields_str'] = $fields_str;
+            $this->memcache->set(md5($id), $result, 60);
         }
         return $result;
     }
@@ -72,7 +88,7 @@ class User extends Model
                 $this->saveObjects($data['objects']);
                 unset($data['objects']);
             }
-            
+
             foreach ($data as $key => $value) {
                 $params_arr[] = ':' . $key;
                 $params[':' . $key] = $value;
@@ -84,6 +100,9 @@ class User extends Model
 
             $sql = 'INSERT INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values . ' ON DUPLICATE KEY UPDATE ' . $update_values;
             $this->query($sql, $params);
+        }
+        if ($this->memcache) {
+            $this->memcache->delete(md5($this->user_id));
         }
     }
 
@@ -98,7 +117,7 @@ class User extends Model
             } else {
                 $objects[] = '(\'' . $this->user_id . '\', \'' . $this->objects['name'] . '\', \'' . $this->objects['data'] . '\')';
             }
-            $sql = 'INSERT INTO ' . $this->objectsTable . ' (`user_id`, `name`, `data`) VALUES ' . implode(', ', $objects) . ' ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), name = VALUES(name), data = VALUES(data)';
+            $sql = 'REPLACE INTO ' . $this->objectsTable . ' (`user_id`, `name`, `data`) VALUES ' . implode(', ', $objects) . ';';
         }
         $this->queryTransaction($sql);
     }

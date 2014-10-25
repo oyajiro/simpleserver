@@ -1,45 +1,47 @@
 var request = require('request');
+var md5 = require('MD5');
 var fields = [
     'level',
     'coins',
     'objects',
 ];
-var data = {
-    level: 100,
-    coins: 100,
-    last_visit: 1414234643,
-    continious_visit_days: 101,
-    objects: [
-        {
-            name: 'some_name',
-            data: 'some_text',
-        },
-        {
-            name: 'some_name2',
-            data: 'some_text_longer',
-        },
-        {
-            name: 'some_name3',
-            data: 'some_text',
-        },
-    ],
-};
-request.post('http://localhost', {
-  // form: {
-  //   action: 'get',
-  //   person_id: '0290348ad800cf400d36ec00b96c78bb',
-  //   network_key: '123',
-  //   auth_key: '123',
-  //   fields: JSON.stringify(fields),
-  // }
-form: {
-    action: 'save',
-    person_id: '003c6f76523766e4493ab474addc542b',
-    network_key: '123',
-    auth_key: '123',
-    data: JSON.stringify(data),
-    // fields: JSON.stringify(fields),
-  }
-}, function(error, response, body) {
-  console.log(body);
-});
+console.time('sum');
+for ($i=0; $i<10000; $i++) {
+    console.log($i);
+    console.time($i);
+    var data = {
+        level: Math.floor(Math.random() * 100),
+        coins: Math.floor(Math.random() * 100),
+        last_visit: console.time(),
+        continious_visit_days: Math.floor(Math.random() * 80),
+        objects: [
+            {
+                name: md5(Math.floor(Math.random() * 100000)),
+                data: 'some_text',
+            },
+            {
+                name: md5(Math.floor(Math.random() * 100000)),
+                data: 'some_text_longer',
+            },
+            {
+                name: md5(Math.floor(Math.random() * 100000)),
+                data: 'some_text',
+            },
+        ],
+    };
+    request.post('http://localhost', {
+    form: {
+        action: 'save',
+        person_id: md5(Math.floor(Math.random() * 1000)),
+        network_key: '123',
+        auth_key: '123',
+        data: JSON.stringify(data),
+        // fields: JSON.stringify(fields),
+      }
+    }, function(error, response, body) {
+        console.log(body);
+        console.timeEnd('sum');
+    });
+    console.timeEnd($i);
+}
+console.timeEnd('sum');
