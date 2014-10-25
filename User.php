@@ -49,29 +49,16 @@ class User extends Model
         if (is_array($fields)) {
             if (in_array('objects', $fields)) {
                 $includeObjects = true;
-                foreach ($fields as $key => $value) {
-                    $fields[$key] = $this->table . '.' . $value;
-                    if (($value) == 'objects') {
-                        unset($fields[$key]);
-                    }
-                }
-                $fields['name'] = $this->objectsTable . '.' . 'name';
-                $fields['data'] = $this->objectsTable . '.' . 'data';
             }
             $fields = implode(', ', $fields);
         }
         $params = array(':' . $this->id_field => $id);
-        $sql = 'SELECT ' . $fields . ' FROM ' . $this->table;
+        $sql = 'SELECT ' . $fields . ' FROM ' . $this->table . ' WHERE ' . $this->id_field . ' = :' . $this->id_field . ' LIMIT 1';
+        $result = $this->selectOne($sql, $params);
         if ($includeObjects) {
-            $sql .= ' RIGHT JOIN ' . $this->objectsTable . ' ON ' . $this->table . '.user_id = ' . $this->objectsTable . '.user_id WHERE ' . $this->table . '.' . $this->id_field . ' = :' . $this->id_field;
-            $result = $this->selectPreparedRows($sql, $params);
-            var_dump($result);
-        } else {
-            $sql .= ' WHERE ' . $this->id_field . ' = :' . $this->id_field . ' LIMIT 1';
-            $result = $this->selectOne($sql, $params);
+            $result['objects'] = $this->getObjectsById($id);
         }
-        print_r($sql);
-        //return $result;
+        return $result;
     }
 
     public function save()
@@ -81,19 +68,21 @@ class User extends Model
         $params_arr = array();
         $str = '';
         if ($this->validate($data)) {
+            if (!empty($data['objects'])) {
+                $this->saveObjects($data['objects']);
+                unset($data['objects']);
+            }
+            
             foreach ($data as $key => $value) {
-                if ($key == 'objects') {
-                    $this->saveObjects($data['objects']);
-                    unset($data[$key]);
-                } else {
-                    $params_arr[] = ':' . $key;
-                    $params[':' . $key] = $value;
-                }
+                $params_arr[] = ':' . $key;
+                $params[':' . $key] = $value;
+                $update_params[] = $key . ' = ' . ' :' . $key;
             }
             $str =  '(' . implode(', ', array_keys($data)) . ')';
             $values =  '(' . implode(', ', $params_arr) . ')';
+            $update_values = implode(', ', $update_params);
 
-            $sql = 'REPLACE INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values;
+            $sql = 'INSERT INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values . ' ON DUPLICATE KEY UPDATE ' . $update_values;
             $this->query($sql, $params);
         }
     }
@@ -109,7 +98,7 @@ class User extends Model
             } else {
                 $objects[] = '(\'' . $this->user_id . '\', \'' . $this->objects['name'] . '\', \'' . $this->objects['data'] . '\')';
             }
-            $sql = 'REPLACE INTO UserObjects (`user_id`, `name`, `data`) VALUES ' . implode(', ', $objects) . ';';
+            $sql = 'INSERT INTO ' . $this->objectsTable . ' (`user_id`, `name`, `data`) VALUES ' . implode(', ', $objects) . ' ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), name = VALUES(name), data = VALUES(data)';
         }
         $this->queryTransaction($sql);
     }
@@ -125,81 +114,13 @@ class User extends Model
         return $this->selectPreparedRows($sql, $params);
     }
 
-    public function getUserObjects() {
+    public function getObjectsById($id) {
         if (empty($this->objects)) {
-            $sql = 'SELECT ' . $fields . ' FROM ' . $this->objectsTable . ' WHERE user_id = :' . $user_id;
-            $params = array(':user_id' => $user_id);
+            $sql = 'SELECT name, data FROM ' . $this->objectsTable . ' WHERE user_id = :user_id';
+            $params = array(':user_id' => $id);
             $this->objects = $this->selectPreparedRows($sql, $params);
         }
         return $this->objects;
     }
-
-    // public function getRows($fields, $data)
-    // {
-    //     $includeObjects = false;
-    //     if (is_array($fields)) {
-    //         if (isset($fields['objects'])) {
-    //             $includeObjects = true;
-    //         }
-    //         $fields = implode(', ', $fields);
-    //     }
-    //     $conditions = array();
-    //     $sql = 'SELECT ' . $fields . ' FROM ' . $this->table . ' WHERE ';
-    //     if (!empty($data[0])) {
-    //         $in = array();
-    //         foreach ($data as $row) {
-    //             //Валидация требует доработки
-    //             foreach ($row as $key => $value) {
-    //                 $in['`' . $key . '`'][] = '\''. $value . '\'';
-    //             }
-    //         }
-    //         if (!empty($in)) {
-    //             foreach ($in as $key => $value) {
-    //                 $conditions[] = $key . ' IN (' . implode(', ', $value) . ')';
-    //             }
-    //         }
-    //     } else {
-    //         foreach ($data as $key => $value) {
-    //             $conditions[] = '`' . $key . '` = \'' . $value . '\'';
-    //         }
-    //     }
-    //     $sql .= implode(' OR ', $conditions);
-    //     print_r($sql);
-    //     return $this->selectRows($sql);
-    // }
-
-
-
-    // public function saveRows($fields, $data)
-    // {
-    //     $value_rows = array();
-    //     $objects = array();
-    //     foreach ($data as $row) {
-    //         if ($this->validate($row)) {
-    //             $values = array();
-    //             foreach ($row as $key => $value) {
-    //                 if ($key == 'objects') {
-    //                     if (!empty($value[0])) {
-    //                         foreach ($value as $object) {
-    //                             $objects[] = '(\'' . $row['user_id'] . '\', \'' . $object['name'] . '\', \'' . $object['data'] . '\')';
-    //                         }
-    //                     } else {
-    //                         $objects[] = '(\'' . $row['user_id'] . '\', \'' . $value['name'] . '\', \'' . $value['data'] . '\')';
-    //                     }
-    //                 } else {
-    //                     $values[] = '\'' . $value . '\'';
-    //                 }
-    //             }
-    //             $value_rows[] = '(' . implode(', ', $values) . ')';
-    //         }
-    //     }
-    //     if (!empty($value_rows)) {
-    //         $sql = 'REPLACE INTO ' . $this->table . ' ( ' . implode(', ', $fields) . ') VALUES ' . implode(', ', $value_rows) . ';';
-    //         if (!empty($objects)) {
-    //             $sql .= ' REPLACE INTO UserObjects (`user_id`, `name`, `data`) VALUES ' . implode(', ', $objects) . ';';
-    //         }
-    //         $this->queryTransaction($sql);
-    //     }
-    // }
 
 }

@@ -160,7 +160,9 @@ class Model
     {
         $values=array();
         foreach($this->fields as $field) {
-            $values[$field] = $this->$field;
+            if (!empty($this->$field)) {
+                $values[$field] = $this->$field;
+            }
         }
         return $values;
     } 
@@ -172,7 +174,7 @@ class Model
         }
         foreach($values as $name=>$value)
         {
-            if(in_array($name, $this->fields)) {
+            if(in_array($name, $this->fields) && !empty($value)) {
                 $this->$name = $value;
             }
         }
