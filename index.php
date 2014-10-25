@@ -1,4 +1,6 @@
 <?php
+
+    // xhprof_enable(XHPROF_FLAGS_CPU + XHPROF_FLAGS_MEMORY);
     function __autoload($class_name) {
         include $class_name . '.php';
     }
@@ -8,6 +10,8 @@
     }
 
     $user = new User();
+    $result = $user->getRows($data);
+    print_r(count($result));
 
     if (isset($_POST['action'])&& isset($_POST['network_key'])) {
         $request = true;
@@ -54,4 +58,9 @@
             }
         }
     }
+    // $xhprof_data = xhprof_disable();
+    // include_once "/var/www/xhprof/xhprof_lib/utils/xhprof_lib.php";
+    // include_once "/var/www/xhprof/xhprof_lib/utils/xhprof_runs.php";
+    // $xhprof_runs = new XHProfRuns_Default();
+    // $run_id = $xhprof_runs->save_run($xhprof_data, "test");
 ?>

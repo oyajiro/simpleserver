@@ -31,8 +31,8 @@ class Model
     private function validate($params)
     {
         $result = true;
-        foreach ($this->fields as $field) {
-            if (!isset($params['field'])) {
+        foreach ($params as $key => $value) {
+            if (!in_array($key, $this->fields)) {
                 $result = false;
             }
         }
@@ -55,6 +55,13 @@ class Model
         return $result;
     }
 
+    private function selectRows($sql)
+    {
+        $query = $this->db->prepare($sql);
+        $query->execute();
+        return $query->fetchAll($this->fetch_style);
+    }
+
     private function query($sql, $params)
     {
         if ($this->validate($params)) {
@@ -74,8 +81,40 @@ class Model
     {
 
         $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $this->id_field . ' = :' . $this->id_field . ' LIMIT 1';
-        $params = array(':user_id' => $id);
+        $params = array($this->id_field => $id);
         return $this->selectOne($sql, $params);
+    }
+
+    public function getRowByField($field, $value)
+    {
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $field . ' = :' . $field . ' LIMIT 1';
+        $params = array($field => $value);
+        return $this->selectOne($sql, $params);
+    }
+
+    public function getRowsByField($field, $values)
+    {
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ' . $field . ' IN (' . implode(', ', $values) . ')';
+        return $this->selectRows($sql);
+    }
+
+    public function getRows($data)
+    {
+        $sql = 'SELECT ' . implode(',', $this->fields) . ' FROM ' . $this->table . ' WHERE ';
+        $in = array();
+        foreach ($data as $row) {
+            //Валидация требует доработки
+            foreach ($row as $key => $value) {
+                $in['`' . $key . '`'][] = '\''. $value . '\'';
+            }
+        }
+        if (!empty($in)) {
+            $conditions = array();
+            foreach ($in as $key => $value) {
+                $conditions[] = $key . ' IN (' . implode(', ', $value) . ')';
+            }
+        }
+        return $this->selectRows($sql . implode(' OR ', $conditions));
     }
 
     public function saveRow()
@@ -89,33 +128,36 @@ class Model
             foreach ($data as $key => $value) {
                 $params_arr[] = ':' . $key;
                 $params[':' . $key] = $value;
-                $update_params[] = $key . ' = ' . ' :' . $key;
             }
             $values =  '(' . implode(', ', $params_arr) . ')';
-            $update_values = implode(', ', $update_params);
 
-            $sql = 'INSERT INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values . ' ON DUPLICATE KEY UPDATE ' . $update_values;
+            $sql = 'REPLACE INTO ' . $this->table . ' ' . $str . ' VALUES ' . $values;
             $this->query($sql, $params);
         }
     }
 
     public function saveRows($data)
     {
-        $sql = 'INSERT INTO ' . $this->table . '( ' . implode(', ', $this->fields) . ') VALUES';
+        $fields = array();
+        foreach ($this->fields as $field) {
+            $fields[] = '`' . $field . '`';
+        }
+        $sql = 'REPLACE INTO ' . $this->table . ' ( ' . implode(', ', $fields) . ') VALUES ';
         foreach ($data as $row) {
-            if $this->validate($row) {
+            if ($this->validate($row)) {
                 $values = array();
                 foreach ($row as $key => $value) {
-                    $values[] = $value;
+                    $values[] = '\'' . $value . '\'';
                 }
-                $sql .=  '(' . implode(', ', $values[]) . ')';
+                if ($row === end($data)) {
+                    $sql .=  '(' . implode(', ', $values) . ');';
+
+                } else {
+                    $sql .=  '(' . implode(', ', $values) . '), ';
+                }
             }
         }
-        foreach ($this->fields as $field) {
-            $update_params[] = $params['field'] . ' = VALUES(' . $params['field'] . ')';
-        }
-        $sql .=  ' ON DUPLICATE KEY UPDATE ' . implode(', ', $update_params);
-        $this->query($sql, $params);
+        $this->queryTransaction($sql);
     }
 
     public function getAttributes()
